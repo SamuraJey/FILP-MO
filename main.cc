@@ -88,26 +88,32 @@ char* ReadFromFile(const char* FileName) {
     return ReadBuffer;
 }
 
-char* GetNextWord(char* textBuffer, const char* delimiters) {
-    char* start = textBuffer;
-    while (*start != '\0' && strchr(delimiters, *start) != nullptr) {
-        start++;
+char* GetNextWord(char* textBuffer, const char* delimiters, int& globalLenght) {
+    if (globalLenght <= 0) {
+        return nullptr;
     }
-    if (*start == '\0') {
-        return nullptr; // no more words
+    char* start = textBuffer;
+    char* iterator = textBuffer;
+    int currLenght = 0;
+    while (strchr(delimiters, *start) != nullptr) {
+        start++;
+        currLenght++;
     }
     char* end = start;
     while (*end != '\0' && strchr(delimiters, *end) == nullptr) {
         end++;
+        currLenght++;
     }
     if (*end != '\0') {
-        *end = '\0'; // terminate the word
-        end++;
+        *end = '\0';  // terminate the word
+        // end++;
     }
+    currLenght++;
+    globalLenght -= currLenght;
     return start;
 }
 
-void TextMapTest(Allocator* allocator, const char* allocator_name, char* TextBuffer) {
+void TextMapTest(Allocator* allocator, const char* allocator_name, char* TextBuffer, int globalLenght) {
     // Занёс замер времени из main сюда.
     // Плюсы: можно мерить время на аллокацию и деаллокацию раздельно, main чище
     // Минусы: Для вывода логов, нужно передовать названия аллокаторов.
@@ -120,10 +126,10 @@ void TextMapTest(Allocator* allocator, const char* allocator_name, char* TextBuf
         std::map<const char*, size_t, CStringComparator, STLAdapter<std::pair<const char* const, size_t>>> Map(WrapperAllocator);
 
         time_mark = std::chrono::high_resolution_clock::now();
-        char* word = GetNextWord(TextBuffer, " \n\r\t");
+        char* word = GetNextWord(TextBuffer, " \n\r\t", globalLenght);
         while (word != nullptr) {
             Map[word]++;
-            word = GetNextWord(word + strlen(word) + 1, " \n\r\t");
+            word = GetNextWord(word + strlen(word) + 1, " \n\r\t", globalLenght);
         }
         alloc_time = std::chrono::high_resolution_clock::now() - time_mark;
 
@@ -148,18 +154,22 @@ void TextMapTest(Allocator* allocator, const char* allocator_name, char* TextBuf
 }
 
 int main() {
-    char* ReadBuffer = ReadFromFile("../war_en.txt");
-
+    char* ReadBuffer = ReadFromFile("../test.txt");
+    size_t TxtBufferSize = sizeof(ReadBuffer) / sizeof(ReadBuffer[0]);
+    int ReadBufferLenght = int(strlen(ReadBuffer));
+    // printf("TxtBufferSize: %d\n", TxtBufferSize);
+    // printf("kek: %d\n", kek);
+    // return 0;
     ReferenceAllocator* referenceAllocator = new ReferenceAllocator();
-    TextMapTest(referenceAllocator, "Reference Allocator", ReadBuffer);
+    TextMapTest(referenceAllocator, "Reference Allocator", ReadBuffer, ReadBufferLenght);
     delete referenceAllocator;
 
     PoolAllocator* poolAllocator = new PoolAllocator();
-    TextMapTest(poolAllocator, "Pool allocator", ReadBuffer);
+    TextMapTest(poolAllocator, "Pool allocator", ReadBuffer, ReadBufferLenght);
     delete poolAllocator;
 
     LinkedListAllocator* linkedListAllocator = new LinkedListAllocator();
-    TextMapTest(linkedListAllocator, "Linked list allocator", ReadBuffer);
+    TextMapTest(linkedListAllocator, "Linked list allocator", ReadBuffer, ReadBufferLenght);
     delete linkedListAllocator;
 
     free(ReadBuffer);
